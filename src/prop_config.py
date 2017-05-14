@@ -14,6 +14,8 @@ __C.BY = 6
 __C.CHESS_DIR = "./corners_imgs"
 __C.UNDISTORT_DIR = "./undistorted_imgs"
 __C.CAMERA_MATRIX_FILE = 'camera_matrix.p'
+__C.TEST_IMGS_DIR = "./test_images"
+__C.PIPELINE_TESTS_DIR = "./pipeline_tests"
 
 cfg = __C
 
