@@ -7,7 +7,7 @@ import pickle
 from prop_config import cfg
 
 
-def calibrate():
+def find_camera_matrix():
 
     if not os.path.exists(cfg.CHESS_DIR):
         os.makedirs(cfg.CHESS_DIR)
@@ -58,4 +58,4 @@ def calibrate():
 
 
 if __name__ == "__main__":
-    calibrate()
+    find_camera_matrix()
