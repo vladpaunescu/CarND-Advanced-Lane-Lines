@@ -14,21 +14,20 @@ class Perspective:
 
         self.img_size = img_size
 
-        print ("Image size {}".format(img_size))
+        print("Image size {}".format(img_size))
 
-        self.src = np.float32([[img_size[0] / 2 - 10, img_size[1] / 2 + 60],
-                              [img_size[0] / 2 + 10, img_size[1] / 2 + 60],
-                              [img_size[0] - 160, img_size[1]],
-                              [160, img_size[1]]])
+        # top left, bottom left, bottom right, top right
+        self.src = np.float32([[img_size[0] / 2 - 63, img_size[1] / 2 + 95], [180, img_size[1]],
+                               [img_size[0] - 160, img_size[1]], [img_size[0] / 2 + 65, img_size[1] / 2 + 95]])
 
-        # self.src = np.float32([[200, 300], [200, 400], [600, 700], [600, 100]])
+        # top left, bottom left, bottom right, top right
+        self.dst = np.float32([[200, 0],  [200, 720], [1000, 720], [1000, 0]])
 
-        print("Perspective points\n{}".format(self.src))
+        print("Perspective src points\n{}".format(self.src))
+        print("Perspective dst points\n{}".format(self.dst))
 
-
-
-        # M = cv2.getPerspectiveTransform(self.src, self.dst)
-        # M_inv = cv2.getPerspectiveTransform(self.dst, self.src)
+        self.M = cv2.getPerspectiveTransform(self.src, self.dst)
+        self.M_inv = cv2.getPerspectiveTransform(self.dst, self.src)
 
     def birds_eye(self, img):
         return cv2.warpPerspective(img, self.M, self.img_size)
@@ -38,14 +37,23 @@ class Perspective:
 
     def draw_perspective_roi(self, img):
         out = np.copy(img)
-        cv2.polylines(out, [self.src.astype(np.int32)], True, (0, 255, 0), thickness=4)
+        cv2.polylines(out, [self.src.astype(np.int32)], False, (0, 255, 0), thickness=4)
+        cv2.polylines(out, [self.dst.astype(np.int32)], False, (0, 0, 255), thickness=4)
         return out
+
 
 def run_on_test_images():
         imgs = os.listdir(cfg.TEST_UNDISTORTED_IMGS_DIR)
         print("Rectified test images {}".format(imgs))
         perspective = Perspective()
-        ipm_mapper = Mapper(cfg.TEST_IMGS_DIR, cfg.TEST_BIRDS_EYE_IMGS_DIR, fn=perspective.draw_perspective_roi)
+
+        # draw rois polygons
+        ipm_mapper = Mapper(cfg.TEST_IMGS_DIR, cfg.TEST_ROI_IMGS_DIR, fn=perspective.draw_perspective_roi)
+        for img in imgs:
+            ipm_mapper.process_frame(img)
+
+        # draw rois polygons
+        ipm_mapper = Mapper(cfg.TEST_IMGS_DIR, cfg.TEST_BIRDS_EYE_IMGS_DIR, fn=perspective.birds_eye)
         for img in imgs:
             ipm_mapper.process_frame(img)
 

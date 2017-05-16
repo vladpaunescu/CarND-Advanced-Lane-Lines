@@ -18,6 +18,7 @@ __C.UNDISTORT_IMGS_DIR = "./undistorted_imgs"
 
 __C.TEST_IMGS_DIR = "./test_images"
 __C.TEST_UNDISTORTED_IMGS_DIR = "./test_undistorted_imgs"
+__C.TEST_ROI_IMGS_DIR = "./test_roi_imgs"
 __C.TEST_BIRDS_EYE_IMGS_DIR = "./test_birds_eye_imgs"
 
 __C.PIPELINE_TESTS_DIR = "./pipeline_tests"

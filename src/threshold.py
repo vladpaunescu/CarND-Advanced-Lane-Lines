@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 from prop_config import cfg
-
+from mapper import Mapper
 
 class Threshold:
     def __init__(self):
@@ -104,6 +104,31 @@ class Threshold:
 
         return combined_binary
 
+
+
+def run_on_test_images():
+        imgs = os.listdir(cfg.TEST_UNDISTORTED_IMGS_DIR)
+        print("Rectified test images {}".format(imgs))
+        t = Threshold()
+
+        print("Threshold on normal images")
+
+        # draw rois polygons
+        ipm_mapper = Mapper(cfg.TEST_IMGS_DIR, cfg.TEST_ROI_IMGS_DIR, fn=perspective.draw_perspective_roi)
+        for img in imgs:
+            ipm_mapper.process_frame(img)
+
+        # draw rois polygons
+        ipm_mapper = Mapper(cfg.TEST_IMGS_DIR, cfg.TEST_BIRDS_EYE_IMGS_DIR, fn=perspective.birds_eye)
+        for img in imgs:
+            ipm_mapper.process_frame(img)
+
+        print("Threshold on bird's eye images")
+
+
+
+if __name__ == "__main__":
+        run_on_test_images()
 
 if __name__ == "__main__":
 
