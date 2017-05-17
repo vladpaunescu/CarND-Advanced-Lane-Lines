@@ -48,12 +48,12 @@ def run_on_test_images():
         perspective = Perspective()
 
         # draw rois polygons
-        ipm_mapper = Mapper(cfg.TEST_IMGS_DIR, cfg.TEST_ROI_IMGS_DIR, fn=perspective.draw_perspective_roi)
+        ipm_mapper = Mapper(cfg.TEST_UNDISTORTED_IMGS_DIR, cfg.TEST_ROI_IMGS_DIR, fn=perspective.draw_perspective_roi)
         for img in imgs:
             ipm_mapper.process_frame(img)
 
         # draw rois polygons
-        ipm_mapper = Mapper(cfg.TEST_IMGS_DIR, cfg.TEST_BIRDS_EYE_IMGS_DIR, fn=perspective.birds_eye)
+        ipm_mapper = Mapper(cfg.TEST_UNDISTORTED_IMGS_DIR, cfg.TEST_BIRDS_EYE_IMGS_DIR, fn=perspective.birds_eye)
         for img in imgs:
             ipm_mapper.process_frame(img)
 

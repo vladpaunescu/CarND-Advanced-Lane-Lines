@@ -9,7 +9,7 @@ class Threshold:
     def __init__(self):
         self.H_COLOR_THRESH = (15, 100)
         self.S_COLOR_THRESH = (170, 255)
-        self.SOBEL_DIR_THRESHOLD = (20, 100)
+        self.SOBEL_X_THRESHOLD = (20, 100)
         self.SOBEL_MAG_THRESHOLD = (50, 100)
         self.SOBEL_DIR_THRESHOLD = (0.7, 1.3)
         self.KSIZE = 15
@@ -18,27 +18,28 @@ class Threshold:
     def color_thresh(self, image, thresh=None):
         thresh = self.S_COLOR_THRESH if thresh is None else thresh
 
-        hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+        hls = cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
         s_channel = hls[:, :, 2]
         h_channel = hls[:, :, 0]
 
         color_mask = np.zeros_like(s_channel)
         color_mask[(s_channel >= thresh[0]) & (s_channel <= thresh[1]) &
-                     (h_channel >= 15) & (h_channel <= 100)] = 1
+                   (h_channel >= self.H_COLOR_THRESH[0]) &
+                   (h_channel <= self.H_COLOR_THRESH[1])] = 1
 
         return color_mask
 
 
-    def abs_sobel_dir_thresh(self, image, dx, dy, ksize=None, thresh = None):
+    def abs_sobel_dir_thresh(self, image, dx = 1, dy = 0, ksize=None, thresh = None):
 
         ksize = self.KSIZE if ksize is None else ksize
-        thresh = self.SOBEL_DIR_THRESHOLD if thresh is None else thresh
+        thresh = self.SOBEL_X_THRESHOLD if thresh is None else thresh
 
-        hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         gray = hsv[:,:,2]
         sobel = cv2.Sobel(gray, cv2.CV_64F, dx, dy, ksize=ksize)
         abs_sobel = np.absolute(sobel)
-        scaled_sobel = np.uint8(255*abs_sobel/np.max(abs_sobel))
+        scaled_sobel = np.uint8(255 * abs_sobel / np.max(abs_sobel))
 
         s_binary = np.zeros_like(scaled_sobel)
         s_binary[(scaled_sobel >= thresh[0]) & (scaled_sobel <= thresh[1])] = 1
@@ -47,7 +48,8 @@ class Threshold:
 
 
     def abs_horiz_sobel_thresh(self, image):
-        return self.abs_sobel_dir_thresh(image, dx=1, dy=0)
+        return self.abs_sobel_dir_thresh(image, dx=1, dy=0,
+                                         ksize=self.KSIZE, thresh=self.SOBEL_X_THRESHOLD)
 
 
     def magn_sobel_thresh(self, image, ksize=None, thresh=None):
@@ -55,7 +57,7 @@ class Threshold:
         ksize = self.KSIZE if ksize is None else ksize
         thresh = self.SOBEL_MAG_THRESHOLD if thresh is None else thresh
 
-        hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         gray = hsv[:,:,2]
 
         sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=ksize)
@@ -77,7 +79,7 @@ class Threshold:
         ksize = self.KSIZE if ksize is None else ksize
         thresh = self.SOBEL_DIR_THRESHOLD if thresh is None else thresh
 
-        hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         gray = hsv[:,:,2]
 
         # Calculate the x and y gradients
@@ -106,49 +108,34 @@ class Threshold:
 
 
 
-def run_on_test_images():
-        imgs = os.listdir(cfg.TEST_UNDISTORTED_IMGS_DIR)
-        print("Rectified test images {}".format(imgs))
-        t = Threshold()
+def run_on_test_images(input_dir, output_dir):
+        imgs = os.listdir(input_dir)
+        print("Test images {}".format(imgs))
+        threshold = Threshold()
 
+        color_threshold_mapper = Mapper(input_dir, output_dir,
+                                        fn=threshold.color_thresh, file_part="_color_thresh")
+        sobel_x_threshold_mapper = Mapper(input_dir, output_dir, fn=threshold.abs_horiz_sobel_thresh,
+                                          file_part="_sobel_x_thresh")
+        sobel_magn_threshold_mapper = Mapper(input_dir, output_dir, fn=threshold.magn_sobel_thresh,
+                                             file_part="_sobel_magn_thresh")
+        sobel_dir_threshold_mapper = Mapper(input_dir, output_dir, fn=threshold.dir_sobel_thresh,
+                                            file_part="_sobel_dir_thresh")
+        combined_threshold_mapper = Mapper(input_dir, output_dir, fn=threshold.threshold_image,
+                                           file_part="_combined_thresh")
+
+        mappers = [color_threshold_mapper, sobel_x_threshold_mapper,
+                   sobel_magn_threshold_mapper, sobel_dir_threshold_mapper, combined_threshold_mapper]
+
+        for idx,img in enumerate(imgs):
+            print("Image {}".format(idx))
+            for mapper in mappers:
+                mapper.process_frame(img, scale = 255)
+
+
+if __name__ == "__main__":
         print("Threshold on normal images")
+        # run_on_test_images(cfg.TEST_UNDISTORTED_IMGS_DIR, cfg.TEST_THRESH_IMGS_DIR)
+        print("Threshold on birds eye images")
+        run_on_test_images(cfg.TEST_BIRDS_EYE_IMGS_DIR, cfg.TEST_BIRDS_EYE_THRESH_IMGS_DIR)
 
-        # draw rois polygons
-        ipm_mapper = Mapper(cfg.TEST_IMGS_DIR, cfg.TEST_ROI_IMGS_DIR, fn=perspective.draw_perspective_roi)
-        for img in imgs:
-            ipm_mapper.process_frame(img)
-
-        # draw rois polygons
-        ipm_mapper = Mapper(cfg.TEST_IMGS_DIR, cfg.TEST_BIRDS_EYE_IMGS_DIR, fn=perspective.birds_eye)
-        for img in imgs:
-            ipm_mapper.process_frame(img)
-
-        print("Threshold on bird's eye images")
-
-
-
-if __name__ == "__main__":
-        run_on_test_images()
-
-if __name__ == "__main__":
-
-    if not os.path.exists(cfg.PIPELINE_TESTS_DIR):
-        os.makedirs(cfg.PIPELINE_TESTS_DIR)
-
-    t = Threshold()
-    print(os.path.join(cfg.TEST_IMGS_DIR, "test1.jpg"))
-    img = cv2.imread(os.path.join(cfg.TEST_IMGS_DIR, "test1.jpg"))
-    color_binary = t.color_thresh(img)
-    cv2.imwrite(os.path.join(cfg.PIPELINE_TESTS_DIR, "color_threshold.png"), color_binary * 255)
-
-    sobel_abs_binary = t.abs_horiz_sobel_thresh(img)
-    cv2.imwrite(os.path.join(cfg.PIPELINE_TESTS_DIR, "sobel_horiz_abs_binary.png"), sobel_abs_binary * 255)
-
-    sobel_mag_binary = t.magn_sobel_thresh(img)
-    cv2.imwrite(os.path.join(cfg.PIPELINE_TESTS_DIR, "sobel_mag_binary.png"), sobel_mag_binary * 255)
-
-    sobel_dir_binary = t.dir_sobel_thresh(img)
-    cv2.imwrite(os.path.join(cfg.PIPELINE_TESTS_DIR, "sobel_dir_binary.png"), sobel_dir_binary * 255)
-
-    combined_binary = t.threshold_image(img)
-    cv2.imwrite(os.path.join(cfg.PIPELINE_TESTS_DIR, "combined_binary.png"), combined_binary * 255)
