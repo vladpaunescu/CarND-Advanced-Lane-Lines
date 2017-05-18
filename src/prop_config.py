@@ -27,8 +27,12 @@ __C.TEST_THRESH_IMGS_DIR = "./test_thresh_imgs"
 __C.TEST_BIRDS_EYE_THRESH_IMGS_DIR = "./test_birds_eye_thresh_imgs"
 
 __C.TEST_BIRDS_EYE_BINARY_LINE_IMGS_DIR = "./test_birds_eye_binary_line_imgs"
+__C.TEST_BIRDS_EYE_BINARY_LANE_IMGS_DIR = "./test_birds_eye_binary_lane_imgs"
 
+__C.TEST_LANES_IMGS_DIR = "./test_lanes_imgs"
 
+__C.TEST_VIDEO = "./project_video.mp4"
+__C.OUT_VIDEO = "./lanes_video.mp4"
 
 __C.PIPELINE_TESTS_DIR = "./pipeline_tests"
 

@@ -106,7 +106,11 @@ class Threshold:
 
         return combined_binary
 
+    def run(self, img):
+        return self.threshold_image(img)
 
+
+DEBUG = False
 
 def run_on_test_images(input_dir, output_dir):
         imgs = os.listdir(input_dir)
@@ -124,8 +128,11 @@ def run_on_test_images(input_dir, output_dir):
         combined_threshold_mapper = Mapper(input_dir, output_dir, fn=threshold.threshold_image,
                                            file_part="_combined_thresh")
 
-        mappers = [color_threshold_mapper, sobel_x_threshold_mapper,
+        if DEBUG:
+            mappers = [color_threshold_mapper, sobel_x_threshold_mapper,
                    sobel_magn_threshold_mapper, sobel_dir_threshold_mapper, combined_threshold_mapper]
+        else:
+            mappers = [combined_threshold_mapper]
 
         for idx,img in enumerate(imgs):
             print("Image {}".format(idx))

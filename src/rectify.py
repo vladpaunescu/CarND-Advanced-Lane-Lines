@@ -20,6 +20,9 @@ class Rectify:
     def rectify(self, img):
         return cv2.undistort(img, self.mtx, self.dist, None, self.mtx)
 
+    def run(self, img):
+        return self.rectify(img)
+
 
 def run_on_test_images():
     imgs = os.listdir(cfg.TEST_IMGS_DIR)

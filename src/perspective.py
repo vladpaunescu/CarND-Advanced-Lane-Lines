@@ -8,11 +8,15 @@ from mapper import Mapper
 
 class Perspective:
 
-    def __init__(self, img_size=None):
+    DIRECT = 0
+    INVERSE = 1
+
+    def __init__(self, img_size=None, op_mode=DIRECT):
         if img_size == None:
             img_size = cfg.IMG_WIDTH, cfg.IMG_HEIGHT
 
         self.img_size = img_size
+        self.op_mode = op_mode
 
         print("Image size {}".format(img_size))
 
@@ -40,6 +44,12 @@ class Perspective:
         cv2.polylines(out, [self.src.astype(np.int32)], False, (0, 255, 0), thickness=4)
         cv2.polylines(out, [self.dst.astype(np.int32)], False, (0, 0, 255), thickness=4)
         return out
+
+    def run(self, img):
+        if self.op_mode == Perspective.DIRECT:
+            return self.birds_eye(img)
+        return self.inv_birds_eye(img)
+
 
 
 def run_on_test_images():
