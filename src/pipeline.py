@@ -16,6 +16,7 @@ from moviepy.editor import VideoFileClip
 
 DEBUG = False
 
+
 class Stage:
 
     def __init__(self, process_fn, name="", verbose=False):
@@ -64,7 +65,7 @@ class FrameProcessor:
         threshold = Threshold()
         self.threshold_stage = Stage(threshold, "THRESHOLD")
 
-        self.line_detector = LineDetector()
+        self.line_detector = LineDetector(video_mode=True)
         self.line_detector_stage = Stage(self.line_detector, "LINE_DETECTOR")
 
         pipeline = Pipeline()
@@ -82,17 +83,17 @@ class FrameProcessor:
         is_straight_lane = self.line_detector.is_straight_lane()
 
         if car_x_pos > 0:
-            car_pos_info = "{} m right of lane center".format(car_x_pos)
+            car_pos_info = "{} m right from lane center".format(car_x_pos)
         else:
-            car_pos_info = "{} m left of lane center".format(-car_x_pos)
+            car_pos_info = "{} m left from lane center".format(-car_x_pos)
         if is_straight_lane:
             lane_info = "Straight lane"
         else:
-            lane_info = "Lane curvature: {} m".format(lane_curvature)
+            lane_info = "Lane radius: {} m".format(lane_curvature)
 
-        cv2.putText(result, car_pos_info, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1,
+        cv2.putText(result, car_pos_info, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1,
                     color=(255, 255, 255), thickness=2)
-        cv2.putText(result, lane_info, (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, color=(255, 255, 255),
+        cv2.putText(result, lane_info, (20, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, color=(255, 255, 255),
                     thickness=2)
 
     def run_on_frame(self, frame):
@@ -148,11 +149,11 @@ def build_and_run_pipeline_on_frames(test_imgs_dir, lanes_dir):
         if is_straight_lane:
             lane_info = "Straight lane"
         else:
-            lane_info = "Lane curvature: {} m".format(lane_curvature)
+            lane_info = "Lane radius: {} m".format(lane_curvature)
 
-        cv2.putText(result, car_pos_info, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1,
+        cv2.putText(result, car_pos_info, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1,
                 color=(255, 255, 255), thickness=2)
-        cv2.putText(result, lane_info, (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, color=(255, 255, 255),
+        cv2.putText(result, lane_info, (20, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, color=(255, 255, 255),
                 thickness=2)
 
         out_fname = get_output_path(lanes_dir, img_path)
@@ -167,6 +168,6 @@ def build_and_run_pipeline_on_video(test_video, out_video):
 
 
 if __name__ == "__main__":
-    # build_and_run_pipeline_on_frames(cfg.TEST_IMGS_DIR, cfg.TEST_LANES_IMGS_DIR)
+    #build_and_run_pipeline_on_frames(cfg.TEST_IMGS_DIR, cfg.TEST_LANES_IMGS_DIR)
     build_and_run_pipeline_on_video(cfg.TEST_VIDEO, cfg.OUT_VIDEO)
 

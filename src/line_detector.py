@@ -5,26 +5,61 @@ import os
 from prop_config import cfg
 from mapper import Mapper
 
-
 DEBUG = False
 
+
 class Line:
-    def __init__(self):
-        self.x_points = None
-        self.y_points = None
-        self.poly_fit = None
-        self.xfit = None
+    def __init__(self, detection_window=1):
+        # was the line detected in the last iteration?
+        self.detected = False
+        # x values of the last n fits of the line
+        self.recent_xfitted = []
+
+        self.detection_window = detection_window
+
+        # average x values of the fitted line over the last n iterations
+        self.bestx = None
+        # polynomial coefficients averaged over the last n iterations
+        self.best_fit = None
+
+        # polynomial coefficients for the most recent fit
+        self.current_fit = [np.array([False])]
+
+        # radius of curvature of the line in some units
+        self.radius_of_curvature = None
+        # distance in meters of vehicle center from the line
+        self.line_base_pos = None
+        # difference in fit coefficients between last and new fits
+        self.diffs = np.array([0, 0, 0], dtype='float')
+
+        # x values for detected line pixels
+        self.allx = None
+        # y values for detected line pixels
+        self.ally = None
+
+    def add_last_xfit(self, xfit):
+        self.recent_xfitted.append(xfit)
+        if len(self.recent_xfitted) > self.detection_window:
+            self.recent_xfitted = self.recent_xfitted[1:]
+
+
+#
+# class Line:
+#     def __init__(self):
+#         self.x_points = None
+#         self.y_points = None
+#         self.poly_fit = None
+#         self.xfit = None
 
 class LineDetector:
     def __init__(self, video_mode=False):
-        self.left_line = Line()
-        self.right_line = Line()
+        self.lane_detection_window = cfg.LINE_DETECTION_WINDOW_SIZE
+        self.left_line = Line(self.lane_detection_window)
+        self.right_line = Line(self.lane_detection_window)
         self.is_fitted = False
         self.video_mode = video_mode
 
-
         self.out_img = None
-
 
     def get_lane_curvature(self, binary_warped):
         y_eval = binary_warped.shape[0]
@@ -32,14 +67,14 @@ class LineDetector:
         ym_per_pix = 30 / 720  # meters per pixel in y dimension
         xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
 
-        left_x_points = self.left_line.xfit
+        left_x_points = self.left_line.bestx
         left_y_points = np.linspace(0, binary_warped.shape[0] - 1, binary_warped.shape[0])
 
-        right_x_points = self.right_line.xfit
+        right_x_points = self.right_line.bestx
         right_y_points = np.linspace(0, binary_warped.shape[0] - 1, binary_warped.shape[0])
 
-        left_fit = self.left_line.poly_fit
-        right_fit = self.right_line.poly_fit
+        left_fit = self.left_line.best_fit
+        right_fit = self.right_line.best_fit
 
         # Fit new polynomials to x,y in world space
         left_fit_cr = np.polyfit(left_y_points * ym_per_pix, left_x_points * xm_per_pix, 2)
@@ -74,18 +109,14 @@ class LineDetector:
         return self.line_x_max_diff < 0.4
 
     def draw_lines(self, binary_warped):
-        left_fit = self.left_line.poly_fit
-        right_fit = self.right_line.poly_fit
-        left_x_points, left_y_points = self.left_line.x_points, self.left_line.y_points
-        right_x_points, right_y_points = self.right_line.x_points, self.right_line.y_points
+
+        left_x_points, left_y_points = self.left_line.allx, self.left_line.ally
+        right_x_points, right_y_points = self.right_line.allx, self.right_line.ally
 
         # Generate x and y values for plotting
         ploty = np.linspace(0, binary_warped.shape[0] - 1, binary_warped.shape[0])
-        left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
-        right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
-
-        self.left_line.xfit = left_fitx
-        self.right_line.xfit = right_fitx
+        left_fitx = self.left_line.bestx
+        right_fitx = self.right_line.bestx
 
         self.out_img[left_y_points, left_x_points] = [255, 0, 0]
         self.out_img[right_y_points, right_x_points] = [0, 0, 255]
@@ -96,22 +127,14 @@ class LineDetector:
         cv2.polylines(self.out_img, [left_plt.astype(np.int32)], False, (0, 255, 255), thickness=2)
         cv2.polylines(self.out_img, [right_plt.astype(np.int32)], False, (0, 255, 255), thickness=2)
 
-        # plt.imshow(out_img)
-        # plt.plot(left_fitx, ploty, color='yellow')
-        # plt.plot(right_fitx, ploty, color='yellow')
-        # plt.xlim(0, 1280)
-        # plt.ylim(720, 0)
-
     def fill_lane(self, binary_warped):
-        left_fit = self.left_line.poly_fit
-        right_fit = self.right_line.poly_fit
-        left_x_points, left_y_points = self.left_line.x_points, self.left_line.y_points
-        right_x_points, right_y_points = self.right_line.x_points, self.right_line.y_points
+        left_x_points, left_y_points = self.left_line.allx, self.left_line.ally
+        right_x_points, right_y_points = self.right_line.allx, self.right_line.ally
 
         # Generate x and y values for plotting
         ploty = np.linspace(0, binary_warped.shape[0] - 1, binary_warped.shape[0])
-        left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
-        right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
+        left_fitx = self.left_line.bestx
+        right_fitx = self.right_line.bestx
 
         self.out_img[left_y_points, left_x_points] = [255, 0, 0]
         self.out_img[right_y_points, right_x_points] = [0, 0, 255]
@@ -136,18 +159,15 @@ class LineDetector:
 
     def draw_lane_overlay(self, binary_warped):
 
-        left_fit = self.left_line.poly_fit
-        right_fit = self.right_line.poly_fit
-        left_x_points, left_y_points = self.left_line.x_points, self.left_line.y_points
-        right_x_points, right_y_points = self.right_line.x_points, self.right_line.y_points
+        left_fit = self.left_line.best_fit
+        right_fit = self.right_line.best_fit
 
         # Generate x and y values for plotting
         ploty = np.linspace(0, binary_warped.shape[0] - 1, binary_warped.shape[0])
-        left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
-        right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
 
-        self.left_line.xfit = left_fitx
-        self.right_line.xfit = right_fitx
+        # best x coordiantes for detection over a time window
+        left_fitx = self.left_line.bestx
+        right_fitx = self.right_line.bestx
 
         lane_overlay = np.zeros_like(binary_warped).astype(np.uint8)
         lane_overlay = np.dstack((lane_overlay, lane_overlay, lane_overlay))
@@ -168,9 +188,13 @@ class LineDetector:
 
         if self.video_mode:
             self.is_fitted = True
+            self.left_line.detected = True
+            self.right_line.detected = True
+
+        self.smooth_detections(binary_warped)
 
         if DEBUG:
-            # self.draw_lines(binary_warped)
+            self.draw_lines(binary_warped)
             self.fill_lane(binary_warped)
             return self.out_img
 
@@ -180,6 +204,34 @@ class LineDetector:
 
         return self.out_img
 
+    # this method should be called only in a time sequence of consecutive frames
+    # in a video
+    def smooth_detections(self, binary_warped):
+
+        left_fit = self.left_line.current_fit
+        right_fit = self.right_line.current_fit
+        # Generate x and y values for plotting
+        ploty = np.linspace(0, binary_warped.shape[0] - 1, binary_warped.shape[0])
+        left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
+        right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
+
+        if self.left_line.detected and self.video_mode:
+            self.left_line.add_last_xfit(left_fitx)
+            self.right_line.add_last_xfit(right_fitx)
+
+            self.left_line.bestx = np.average(self.left_line.recent_xfitted, axis=0)
+            self.right_line.bestx = np.average(self.right_line.recent_xfitted, axis=0)
+
+        else:
+            self.left_line.bestx = left_fitx
+            self.right_line.bestx = right_fitx
+
+        if self.video_mode:
+            self.left_line.detected = True
+            self.right_line.detected = True
+
+        self.left_line.best_fit = np.polyfit(ploty, self.left_line.bestx, 2)
+        self.right_line.best_fit = np.polyfit(ploty, self.right_line.bestx, 2)
 
     def detect_lines_initial(self, binary_warped):
         # Assuming you have created a warped binary image called "binary_warped"
@@ -205,7 +257,7 @@ class LineDetector:
         leftx_current = leftx_base
         rightx_current = rightx_base
         # Set the width of the windows +/- margin
-        margin = 150
+        margin = 50
         # Set minimum number of pixels found to recenter window
         minpix = 50
         # Create empty lists to receive left and right lane pixel indices
@@ -226,9 +278,9 @@ class LineDetector:
             cv2.rectangle(out_img, (win_xright_low, win_y_low), (win_xright_high, win_y_high), (0, 255, 0), 2)
             # Identify the nonzero pixels in x and y within the window
             good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (
-            nonzerox < win_xleft_high)).nonzero()[0]
+                nonzerox < win_xleft_high)).nonzero()[0]
             good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (
-            nonzerox < win_xright_high)).nonzero()[0]
+                nonzerox < win_xright_high)).nonzero()[0]
             # Append these indices to the lists
             left_lane_inds.append(good_left_inds)
             right_lane_inds.append(good_right_inds)
@@ -253,10 +305,10 @@ class LineDetector:
         right_fit = np.polyfit(righty, rightx, 2)
 
         # store data
-        self.left_line.x_points,  self.left_line.y_points = leftx, lefty
-        self.right_line.x_points,  self.right_line.y_points = rightx, righty
-        self.left_line.poly_fit = left_fit
-        self.right_line.poly_fit = right_fit
+        self.left_line.allx, self.left_line.ally = leftx, lefty
+        self.right_line.allx, self.right_line.ally = rightx, righty
+        self.left_line.current_fit = left_fit
+        self.right_line.current_fit = right_fit
 
         self.out_img = out_img
 
@@ -265,13 +317,13 @@ class LineDetector:
         # from the next frame of video (also called "binary_warped")
         # It's now much easier to find line pixels!
 
-        left_fit = self.left_line.poly_fit
-        right_fit = self.right_line.poly_fit
+        left_fit = self.left_line.best_fit
+        right_fit = self.right_line.best_fit
 
         nonzero = binary_warped.nonzero()
         nonzeroy = np.array(nonzero[0])
         nonzerox = np.array(nonzero[1])
-        margin = 100
+        margin = 150
         left_lane_inds = (
             (nonzerox > (left_fit[0] * (nonzeroy ** 2) + left_fit[1] * nonzeroy + left_fit[2] - margin)) & (
                 nonzerox < (left_fit[0] * (nonzeroy ** 2) + left_fit[1] * nonzeroy + left_fit[2] + margin)))
@@ -290,10 +342,10 @@ class LineDetector:
         right_fit = np.polyfit(righty, rightx, 2)
 
         # store data
-        self.left_line.x_points, self.left_line.y_points = leftx, lefty
-        self.right_line.x_points, self.right_line.y_points = rightx, righty
-        self.left_line.poly_fit = left_fit
-        self.right_line.poly_fit = right_fit
+        self.left_line.allx, self.left_line.ally = leftx, lefty
+        self.right_line.allx, self.right_line.ally = rightx, righty
+        self.left_line.current_fit = left_fit
+        self.right_line.current_fit = right_fit
 
     def run(self, img):
         return self.detect_lines(img)
@@ -314,7 +366,8 @@ def run_on_test_images(input_dir, output_dir):
         for mapper in mappers:
             mapper.process_frame(img)
 
+
 if __name__ == "__main__":
     print("Find lines on birds eye images")
-    run_on_test_images(cfg.TEST_BIRDS_EYE_THRESH_IMGS_DIR,
+    run_on_test_images(cfg.TEST_BIRDS_EYE_TEST_THRESH_IMGS_DIR,
                        cfg.TEST_BIRDS_EYE_BINARY_LANE_IMGS_DIR)
