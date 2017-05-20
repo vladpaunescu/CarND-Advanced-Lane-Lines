@@ -5,6 +5,8 @@ import os
 from prop_config import cfg
 from mapper import Mapper
 
+DEBUG = True
+
 class Threshold:
     def __init__(self):
         self.H_COLOR_THRESH = (15, 100)
@@ -14,8 +16,19 @@ class Threshold:
         self.SOBEL_DIR_THRESHOLD = (0.7, 1.3)
         self.KSIZE = 15
 
+        self.YELLOW_COLOR_THRESHOLD = (20, 100, 100), (50, 255, 255)
+        self.WHITE_SENSITIVITY_1 = 68
+        self.WHITE_SENSITIVITY_2 = 60
+
 
     def color_thresh(self, image, thresh=None):
+        white_yellow_mask = self.color_thresh_impl_sensitivity(image, thresh)
+        hsl_mask = self.color_thresh_impl_HLS(image, thresh)
+        color_mask = np.zeros_like(hsl_mask)
+        color_mask[((white_yellow_mask == 1) | (hsl_mask == 1))] = 1
+        return color_mask
+
+    def color_thresh_impl_HLS(self, image, thresh = None):
         thresh = self.S_COLOR_THRESH if thresh is None else thresh
 
         hls = cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
@@ -28,6 +41,21 @@ class Threshold:
                    (h_channel <= self.H_COLOR_THRESH[1])] = 1
 
         return color_mask
+
+    def color_thresh_impl_sensitivity(self, image, thresh=None):
+        HSV = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        HSL = cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
+        yellow_mask = cv2.inRange(HSV, self.YELLOW_COLOR_THRESHOLD[0], self.YELLOW_COLOR_THRESHOLD[1])
+
+        white_mask_1 = cv2.inRange(HSV, (0, 0, 255 - self.WHITE_SENSITIVITY_1), (255, 20, 255))
+        white_mask_2 = cv2.inRange(HSL, (0, 255 - self.WHITE_SENSITIVITY_2, 0),
+                                   (255, 255, self.WHITE_SENSITIVITY_2))
+        white_mask_3 = cv2.inRange(HSL, (0, 255 - self.WHITE_SENSITIVITY_2, 0),
+                                   (255, 255, self.WHITE_SENSITIVITY_2))
+
+        color_mask = yellow_mask | white_mask_1 | white_mask_2 | white_mask_3
+
+        return color_mask / 255
 
 
     def abs_sobel_dir_thresh(self, image, dx = 1, dy = 0, ksize=None, thresh = None):
@@ -50,7 +78,6 @@ class Threshold:
     def abs_horiz_sobel_thresh(self, image):
         return self.abs_sobel_dir_thresh(image, dx=1, dy=0,
                                          ksize=self.KSIZE, thresh=self.SOBEL_X_THRESHOLD)
-
 
     def magn_sobel_thresh(self, image, ksize=None, thresh=None):
 
@@ -102,7 +129,8 @@ class Threshold:
         dir_binary = self.dir_sobel_thresh(img)
 
         combined_binary = np.zeros_like(color_binary)
-        combined_binary[((color_binary == 1) | (horiz_binary == 1)) & ((magn_binary == 1) | (dir_binary == 1))] = 1
+        # combined_binary[((color_binary == 1) | (horiz_binary == 1)) & ((magn_binary == 1) | (dir_binary == 1))] = 1
+        combined_binary[((color_binary == 1) | (horiz_binary == 1))] = 1
 
         return combined_binary
 
@@ -110,7 +138,7 @@ class Threshold:
         return self.threshold_image(img)
 
 
-DEBUG = False
+
 
 def run_on_test_images(input_dir, output_dir):
         imgs = os.listdir(input_dir)
@@ -137,7 +165,7 @@ def run_on_test_images(input_dir, output_dir):
         for idx,img in enumerate(imgs):
             print("Image {}".format(idx))
             for mapper in mappers:
-                mapper.process_frame(img, scale = 255)
+                mapper.process_frame(img, scale=255)
 
 
 if __name__ == "__main__":

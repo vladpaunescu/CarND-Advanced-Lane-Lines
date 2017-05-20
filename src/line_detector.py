@@ -13,7 +13,7 @@ class Line:
         self.x_points = None
         self.y_points = None
         self.poly_fit = None
-
+        self.xfit = None
 
 class LineDetector:
     def __init__(self, video_mode=False):
@@ -22,7 +22,56 @@ class LineDetector:
         self.is_fitted = False
         self.video_mode = video_mode
 
+
         self.out_img = None
+
+
+    def get_lane_curvature(self, binary_warped):
+        y_eval = binary_warped.shape[0]
+
+        ym_per_pix = 30 / 720  # meters per pixel in y dimension
+        xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
+
+        left_x_points = self.left_line.xfit
+        left_y_points = np.linspace(0, binary_warped.shape[0] - 1, binary_warped.shape[0])
+
+        right_x_points = self.right_line.xfit
+        right_y_points = np.linspace(0, binary_warped.shape[0] - 1, binary_warped.shape[0])
+
+        left_fit = self.left_line.poly_fit
+        right_fit = self.right_line.poly_fit
+
+        # Fit new polynomials to x,y in world space
+        left_fit_cr = np.polyfit(left_y_points * ym_per_pix, left_x_points * xm_per_pix, 2)
+        right_fit_cr = np.polyfit(right_y_points * ym_per_pix, right_x_points * xm_per_pix, 2)
+
+        # Calculate the new radii of curvature
+        left_curverad = ((1 + (2 * left_fit_cr[0] * y_eval * ym_per_pix +
+                               left_fit_cr[1]) ** 2) ** 1.5) / np.absolute(2 * left_fit_cr[0])
+        right_curverad = ((1 + (2 * right_fit_cr[0] * y_eval * ym_per_pix +
+                                right_fit_cr[1]) ** 2) ** 1.5) / np.absolute(2 * right_fit_cr[0])
+
+        center_camera_x = binary_warped.shape[1] / 2
+        bottom_line_y = binary_warped.shape[0] - 1
+        left_lane_base_x = left_fit[0] * bottom_line_y ** 2 + left_fit[1] * bottom_line_y + left_fit[2]
+        right_lane_base_x = right_fit[0] * bottom_line_y ** 2 + right_fit[1] * bottom_line_y + right_fit[2]
+
+        car_x_position = (center_camera_x - (left_lane_base_x + right_lane_base_x) / 2) * xm_per_pix
+
+        y_pts_m = left_y_points * ym_per_pix
+        left_line_x_m = left_fit_cr[0] * y_pts_m ** 2 + left_fit_cr[1] * y_pts_m + left_fit_cr[2]
+
+        line_x_max_diff = abs(left_line_x_m[0] - left_line_x_m[-1])
+        avg_curve_rad = (left_curverad + right_curverad) / 2.0
+
+        self.avg_curve_rad = avg_curve_rad
+        self.line_x_max_diff = line_x_max_diff
+        self.car_x_position = car_x_position
+
+        return avg_curve_rad, line_x_max_diff, car_x_position
+
+    def is_straight_lane(self):
+        return self.line_x_max_diff < 0.4
 
     def draw_lines(self, binary_warped):
         left_fit = self.left_line.poly_fit
@@ -35,6 +84,8 @@ class LineDetector:
         left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
         right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
 
+        self.left_line.xfit = left_fitx
+        self.right_line.xfit = right_fitx
 
         self.out_img[left_y_points, left_x_points] = [255, 0, 0]
         self.out_img[right_y_points, right_x_points] = [0, 0, 255]
@@ -95,6 +146,9 @@ class LineDetector:
         left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
         right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
 
+        self.left_line.xfit = left_fitx
+        self.right_line.xfit = right_fitx
+
         lane_overlay = np.zeros_like(binary_warped).astype(np.uint8)
         lane_overlay = np.dstack((lane_overlay, lane_overlay, lane_overlay))
 
@@ -122,6 +176,8 @@ class LineDetector:
 
         # prepare a blank lane overlay
         self.out_img = self.draw_lane_overlay(binary_warped)
+        self.get_lane_curvature(binary_warped)
+
         return self.out_img
 
 

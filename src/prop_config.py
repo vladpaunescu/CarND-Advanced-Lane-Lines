@@ -24,7 +24,7 @@ __C.TEST_BIRDS_EYE_IMGS_DIR = "./test_birds_eye_imgs"
 
 
 __C.TEST_THRESH_IMGS_DIR = "./test_thresh_imgs"
-__C.TEST_BIRDS_EYE_THRESH_IMGS_DIR = "./test_birds_eye_thresh_imgs"
+__C.TEST_BIRDS_EYE_THRESH_IMGS_DIR = "./test_birds_eye_thresh_imgs_all"
 
 __C.TEST_BIRDS_EYE_BINARY_LINE_IMGS_DIR = "./test_birds_eye_binary_line_imgs"
 __C.TEST_BIRDS_EYE_BINARY_LANE_IMGS_DIR = "./test_birds_eye_binary_lane_imgs"

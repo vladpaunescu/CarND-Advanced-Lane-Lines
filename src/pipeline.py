@@ -64,8 +64,8 @@ class FrameProcessor:
         threshold = Threshold()
         self.threshold_stage = Stage(threshold, "THRESHOLD")
 
-        line_detector = LineDetector()
-        self.line_detector_stage = Stage(line_detector, "LINE_DETECTOR")
+        self.line_detector = LineDetector()
+        self.line_detector_stage = Stage(self.line_detector, "LINE_DETECTOR")
 
         pipeline = Pipeline()
         pipeline.add_stage(self.rectify_stage)
@@ -76,9 +76,32 @@ class FrameProcessor:
         self.pipeline = pipeline
         self.merger = Merger()
 
+    def telemetric_info(self, result):
+        lane_curvature = self.line_detector.avg_curve_rad.round(3)
+        car_x_pos = self.line_detector.car_x_position.round(3)
+        is_straight_lane = self.line_detector.is_straight_lane()
+
+        if car_x_pos > 0:
+            car_pos_info = "{} m right of lane center".format(car_x_pos)
+        else:
+            car_pos_info = "{} m left of lane center".format(-car_x_pos)
+        if is_straight_lane:
+            lane_info = "Straight lane"
+        else:
+            lane_info = "Lane curvature: {} m".format(lane_curvature)
+
+        cv2.putText(result, car_pos_info, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                    color=(255, 255, 255), thickness=2)
+        cv2.putText(result, lane_info, (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, color=(255, 255, 255),
+                    thickness=2)
+
     def run_on_frame(self, frame):
-        result = self.pipeline.run(frame)
-        return self.merger.merge(result, self.rectify_stage.output)
+        frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        result = self.pipeline.run(frame_bgr)
+        result = self.merger.merge(result, self.rectify_stage.output)
+        self.telemetric_info(result)
+
+        return cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
 
 
 def build_and_run_pipeline_on_frames(test_imgs_dir, lanes_dir):
@@ -113,6 +136,24 @@ def build_and_run_pipeline_on_frames(test_imgs_dir, lanes_dir):
         result = pipeline.run(img)
         print("[MERGER] Merging lane with original input")
         result = merger.merge(result, rectify_stage.output)
+
+        lane_curvature = line_detector.avg_curve_rad.round(3)
+        car_x_pos = line_detector.car_x_position.round(3)
+        is_straight_lane = line_detector.is_straight_lane()
+
+        if car_x_pos > 0:
+            car_pos_info = "{} m right of lane center".format(car_x_pos)
+        else:
+            car_pos_info = "{} m left of lane center".format(-car_x_pos)
+        if is_straight_lane:
+            lane_info = "Straight lane"
+        else:
+            lane_info = "Lane curvature: {} m".format(lane_curvature)
+
+        cv2.putText(result, car_pos_info, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                color=(255, 255, 255), thickness=2)
+        cv2.putText(result, lane_info, (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, color=(255, 255, 255),
+                thickness=2)
 
         out_fname = get_output_path(lanes_dir, img_path)
         cv2.imwrite(out_fname, result)
